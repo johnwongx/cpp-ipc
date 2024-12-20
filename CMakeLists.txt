@@ -33,6 +33,7 @@ if (MSVC)
             string(REPLACE "/MTd" "/MDd" ${CompilerFlag} "${${CompilerFlag}}")
         endforeach()
     endif()
+	add_compile_options(/Zc:__cplusplus)
 endif()
 
 set(LIBRARY_OUTPUT_PATH    ${CMAKE_BINARY_DIR}/bin)
