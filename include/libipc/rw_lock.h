@@ -58,6 +58,17 @@
 
 namespace ipc {
 
+/*
+无锁操作中往往使用了while 循环，如果CAS失败之后立刻进入下一次循环，
+因为其他线程正在修改立刻进入下次循环往往会导致失败。所以最好休息一下，
+这就是yield 函数的作用。
+连续多次调用yield ，每次增加k 值，根据不同的k 选择不同的休息策略。值
+越大休息的时间越长。
+< 4: 不需要休息，也就是不中断当前线程执行
+< 16: 如果相同CPU Core 上有相同或较低优先级的线程在执行，则让出时间片
+< 32: 在所有Core 上找优先级类似的线程，为这些线程让出时间片
+>=32: 让出时间片。依据不同系统的时间精度不同，虽然指定的是 1 毫秒，但这个操作可能花费 10-15 毫秒。
+*/
 template <typename K>
 inline void yield(K& k) noexcept {
     if (k < 4)  { /* Do nothing */ }
@@ -97,10 +108,15 @@ inline void sleep(K& k) {
 
 namespace ipc {
 
+// 自旋锁
+// 如果锁持有时间较短，自旋锁的性能会比阻塞锁更高，因为它避免了线程阻塞和上下文切换的开销。
 class spin_lock {
     std::atomic<unsigned> lc_ { 0 };
 
 public:
+    // memory_order_acquire: 确保后续的读写操作不会被重排到锁获取之前。
+    // memory_order_release: 确保先前的读写操作不会被重排到锁释放之后.
+    // 也就是保证读写在锁的持有期内
     void lock(void) noexcept {
         for (unsigned k = 0;
              lc_.exchange(1, std::memory_order_acquire);
@@ -112,11 +128,15 @@ public:
     }
 };
 
+// 读写锁
 class rw_lock {
     using lc_ui_t = unsigned;
 
     std::atomic<lc_ui_t> lc_ { 0 };
 
+	// std::make_signed_t: 将给定的整数类型（如 unsigned int）转换为其对应的带符号类型（如 int）
+    // (w_flag, 0): 读锁的mask
+    // w_flag: 写锁
     enum : lc_ui_t {
         w_mask = (std::numeric_limits<std::make_signed_t<lc_ui_t>>::max)(), // b 0111 1111
         w_flag = w_mask + 1                                                 // b 1000 0000
@@ -147,6 +167,7 @@ public:
         lc_.store(0, std::memory_order_release);
     }
 
+    // compare_exchange_weak: 如果不等于预期值就会更新预期值。会伪失败，效率比strong 高。
     void lock_shared() noexcept {
         auto old = lc_.load(std::memory_order_acquire);
         for (unsigned k = 0;;) {

@@ -13,6 +13,7 @@
 namespace ipc {
 namespace circ {
 
+// 使用using 可以减少后续修改数据类型时涉及的修改位置
 using u1_t = ipc::uint_t<8>;
 using u2_t = ipc::uint_t<32>;
 

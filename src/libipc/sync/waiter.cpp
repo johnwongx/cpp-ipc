@@ -14,6 +14,7 @@
 namespace ipc {
 namespace detail {
 
+// windows 下啥也不做
 void waiter::init() {
     ipc::detail::sync::mutex::init();
 }

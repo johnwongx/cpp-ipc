@@ -63,6 +63,7 @@ public:
             case WAIT_TIMEOUT:
                 return false;
             case WAIT_ABANDONED:
+                // 互斥量被另一个线程放弃（比如持有锁的线程终止），这时尝试解锁
                 ipc::log("fail WaitForSingleObject[%lu]: WAIT_ABANDONED, try again.\n", ::GetLastError());
                 if (!unlock()) {
                     return false;

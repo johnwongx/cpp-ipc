@@ -91,6 +91,8 @@ void * get_mem(id_t id, std::size_t * size) {
         ipc::error("fail MapViewOfFile[%d]\n", static_cast<int>(::GetLastError()));
         return nullptr;
     }
+    // CreateFileMapping 分配内存的时候会对齐到内存页的大小（ie. 实际大小会大于等于需要的大小），
+    // 所以需要通过Query 函数获取实际大小
     MEMORY_BASIC_INFORMATION mem_info;
     if (::VirtualQuery(mem, &mem_info, sizeof(mem_info)) == 0) {
         ipc::error("fail VirtualQuery[%d]\n", static_cast<int>(::GetLastError()));
