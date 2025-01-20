@@ -13,7 +13,9 @@
 
 namespace ipc {
 namespace circ {
-
+// 本类实际上是Policy 的包装类，并封装了conn_head（连接状态更新）
+// Policy: prod_cons_impl<wr<...>>
+// alignof(std::max_align_t): 目标平台上的所有类型的最大对齐值
 template <typename Policy,
           std::size_t DataSize,
           std::size_t AlignSize = (ipc::detail::min)(DataSize, alignof(std::max_align_t))>
@@ -21,8 +23,8 @@ class elem_array : public ipc::circ::conn_head<Policy> {
 public:
     using base_t   = ipc::circ::conn_head<Policy>;
     using policy_t = Policy;
-    using cursor_t = decltype(std::declval<policy_t>().cursor());
-    using elem_t   = typename policy_t::template elem_t<DataSize, AlignSize>;
+    using cursor_t = decltype(std::declval<policy_t>().cursor());// cursor 函数返回值的类型
+    using elem_t   = typename policy_t::template elem_t<DataSize, AlignSize>; // policy_t类内的elem_t
 
     enum : std::size_t {
         head_size  = sizeof(base_t) + sizeof(policy_t),

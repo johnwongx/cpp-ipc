@@ -13,6 +13,7 @@ namespace ipc {
 namespace detail {
 namespace sync {
 
+// Windows ÏÂÐÅºÅÁ¿
 class semaphore {
     HANDLE h_ = NULL;
 

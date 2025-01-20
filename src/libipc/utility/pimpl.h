@@ -9,6 +9,7 @@
 
 namespace ipc {
 
+// 小对象优化，当对象大小不大于指针大小时，将对象的内容放入到指针本身的内存中
 // pimpl small object optimization helpers
 
 template <typename T, typename R = T*>

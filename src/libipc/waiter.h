@@ -13,6 +13,8 @@
 namespace ipc {
 namespace detail {
 
+// 用于等待条件满足的同步对象
+// 相当于条件变量的封装，在每次被通知时会检查条件是否满足
 class waiter {
     ipc::sync::condition cond_;
     ipc::sync::mutex     lock_;
@@ -61,6 +63,7 @@ public:
         ipc::sync::mutex::clear_storage((std::string{name} + "_WAITER_LOCK_").c_str());
     }
 
+    // 在不退出并且满足条件的情况下继续等待，直到超时或者不满足条件或退出
     template <typename F>
     bool wait_if(F &&pred, std::uint64_t tm = ipc::invalid_value) noexcept {
         IPC_UNUSED_ std::lock_guard<ipc::sync::mutex> guard {lock_};
@@ -88,6 +91,7 @@ public:
     }
 
     bool quit_waiting() {
+        // 实际上可以使用relaxed 内存序，release 易读性更好
         quit_.store(true, std::memory_order_release);
         return broadcast();
     }

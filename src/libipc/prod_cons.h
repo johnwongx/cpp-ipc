@@ -289,38 +289,49 @@ struct prod_cons_impl<wr<relat::single, relat::multi, trans::broadcast>> {
     }
 };
 
+// 多对多的偏特化实现
 template <>
 struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
 
     using rc_t   = std::uint64_t;
     using flag_t = std::uint64_t;
 
+    // 8个字节分为三个部分, 下边的宏都是这些部分的掩码和单位增加值
+    // 低位四字节为rc
+    // 中间三字节为ic
+    // 高位一字节为ep
     enum : rc_t {
-        rc_mask = 0x00000000ffffffffull,
+        rc_mask = 0x00000000ffffffffull, // read count?
         ep_mask = 0x00ffffffffffffffull,
         ep_incr = 0x0100000000000000ull,
         ic_mask = 0xff000000ffffffffull,
-        ic_incr = 0x0000000100000000ull
+        ic_incr = 0x0000000100000000ull // ic 每次增加的值
     };
 
     template <std::size_t DataSize, std::size_t AlignSize>
     struct elem_t {
+        // std::aligned_storage_t: 申请了一块指定大小和对其的内存，但没有初始化。
+        // 结合placement new 使用
         std::aligned_storage_t<DataSize, AlignSize> data_ {};
         std::atomic<rc_t  > rc_   { 0 }; // read-counter
         std::atomic<flag_t> f_ct_ { 0 }; // commit flag
     };
 
+    // alignas :指定对齐长度
     alignas(cache_line_size) std::atomic<circ::u2_t> ct_;   // commit index
     alignas(cache_line_size) std::atomic<rc_t> epoch_ { 0 };
 
+    // 返回提交序号
     circ::u2_t cursor() const noexcept {
         return ct_.load(std::memory_order_acquire);
     }
 
+    // 以ic_incr 为单位进行增加，溢出时舍弃
     constexpr static rc_t inc_rc(rc_t rc) noexcept {
         return (rc & ic_mask) | ((rc + ic_incr) & ~ic_mask);
     }
 
+    // 增加rc，返回值保留ep和ic
     constexpr static rc_t inc_mask(rc_t rc) noexcept {
         return inc_rc(rc) & ~rc_mask;
     }
@@ -331,6 +342,7 @@ struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
         circ::u2_t cur_ct;
         rc_t epoch = epoch_.load(std::memory_order_acquire);
         for (unsigned k = 0;;) {
+            // 连接的reader 个数
             circ::cc_t cc = wrapper->elems()->connections(std::memory_order_relaxed);
             if (cc == 0) return false; // no reader
             el = elems + circ::index_of(cur_ct = ct_.load(std::memory_order_relaxed));

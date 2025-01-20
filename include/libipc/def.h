@@ -55,6 +55,7 @@ struct wr {};
 template <typename WR>
 struct relat_trait;
 
+// 连接类型转为具体的布尔值
 template <relat Rp, relat Rc, trans Ts>
 struct relat_trait<wr<Rp, Rc, Ts>> {
     constexpr static bool is_multi_producer = (Rp == relat::multi);
@@ -62,6 +63,7 @@ struct relat_trait<wr<Rp, Rc, Ts>> {
     constexpr static bool is_broadcast      = (Ts == trans::broadcast);
 };
 
+// 去掉外层的模版封装
 template <template <typename> class Policy, typename Flag>
 struct relat_trait<Policy<Flag>> : relat_trait<Flag> {};
 

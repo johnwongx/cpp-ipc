@@ -128,7 +128,7 @@ public:
     }
 };
 
-// 读写锁
+// 读写锁：使用原子类型结合yield 实现
 class rw_lock {
     using lc_ui_t = unsigned;
 

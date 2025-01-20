@@ -42,8 +42,8 @@
 
 #if __cplusplus >= 201703L
 
-#define IPC_UNUSED_      [[maybe_unused]]
-#define IPC_FALLTHROUGH_ [[fallthrough]]
+#define IPC_UNUSED_      [[maybe_unused]] // 避免编译器警告"未使用的变量"
+#define IPC_FALLTHROUGH_ [[fallthrough]] // 在switch 语句中故意穿透到下一个分支，避免警告
 #define IPC_STBIND_(A, B, ...) auto [A, B] = __VA_ARGS__
 #define IPC_CONSTEXPR_   constexpr
 

@@ -16,7 +16,7 @@ public:
     shm::id_t id_ = nullptr;
     void*     m_  = nullptr;
 
-    ipc::string n_;
+    ipc::string n_; // name
     std::size_t s_ = 0;
 };
 
@@ -29,6 +29,7 @@ handle::handle(char const * name, std::size_t size, unsigned mode)
     acquire(name, size, mode);
 }
 
+// 拷贝构造与赋值函数都是调用的swap，保证一块内存只有一个对象对应
 handle::handle(handle&& rhs)
     : handle() {
     swap(rhs);

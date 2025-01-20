@@ -32,22 +32,26 @@
 namespace {
 
 using msg_id_t = std::uint32_t;
+// 原子类型的msg_id_t
 using acc_t    = std::atomic<msg_id_t>;
 
+// 消息相关的数据
 template <std::size_t DataSize, std::size_t AlignSize>
 struct msg_t;
 
+// 数据长度为零的偏特化
 template <std::size_t AlignSize>
 struct msg_t<0, AlignSize> {
     msg_id_t     cc_id_;
     msg_id_t     id_;
-    std::int32_t remain_;
-    bool         storage_;
+    std::int32_t remain_; // 数据剩余长度
+    bool         storage_; // 内存是否空闲
 };
 
+// 正常数据的偏特化
 template <std::size_t DataSize, std::size_t AlignSize>
 struct msg_t : msg_t<0, AlignSize> {
-    std::aligned_storage_t<DataSize, AlignSize> data_ {};
+    std::aligned_storage_t<DataSize, AlignSize> data_ {}; // 数据存储的内存
 
     msg_t() = default;
     msg_t(msg_id_t cc_id, msg_id_t id, std::int32_t remain, void const * data, std::size_t size)
@@ -103,6 +107,7 @@ struct cache_t {
     }
 };
 
+// 连接信息头
 struct conn_info_head {
 
     ipc::string prefix_;
@@ -159,10 +164,12 @@ struct conn_info_head {
     }
 
     auto acc() {
+        // 如果目标类型有接收源类型的构造函数，就可以使用静态转换
         return static_cast<acc_t*>(acc_h_.get());
     }
 
     auto& recv_cache() {
+        // thread_local 对象的生命周期从第一次访问开始到线程结束
         thread_local ipc::unordered_map<msg_id_t, cache_t> tls;
         return tls;
     }

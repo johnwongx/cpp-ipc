@@ -23,12 +23,14 @@ namespace detail {
 
 template <typename T>
 struct impl {
+    // 使用placement new ,在指定内存位置上构造对象
     template <typename... P>
     static T* construct(T* p, P&&... params) {
         ::new (p) T(std::forward<P>(params)...);
         return p;
     }
 
+    // 没有释放内存，只是运行析构逻辑
     static void destruct(T* p) {
         reinterpret_cast<T*>(p)->~T();
     }

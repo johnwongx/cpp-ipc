@@ -14,6 +14,7 @@ namespace ipc {
 namespace detail {
 namespace sync {
 
+// Windows об╣дкЬ
 class mutex {
     HANDLE h_ = NULL;
 

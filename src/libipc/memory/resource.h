@@ -98,6 +98,8 @@ inline ipc::string make_string(char const *str) {
 }
 
 /// \brief Combine prefix from a list of strings.
+// std::initializer_list: 在语义上是不拥有string 的，也就是不负责管理其生命周期。而且其元素是不能修改的
+// 并且更加轻量级，其内部往往只是对象的指针
 inline ipc::string make_prefix(ipc::string prefix, std::initializer_list<ipc::string> args) {
     prefix += "__IPC_SHM__";
     for (auto const &txt: args) {

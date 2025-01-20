@@ -21,6 +21,7 @@ typedef enum a0_err_e {
   A0_ERR_BAD_TOPIC = 10,
 } a0_err_t;
 
+// extern: 定义在别的文件中
 extern A0_THREAD_LOCAL int a0_err_syscode;
 extern A0_THREAD_LOCAL char a0_err_msg[1024];
 

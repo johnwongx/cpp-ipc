@@ -17,6 +17,7 @@
 namespace ipc {
 namespace mem {
 
+// static 的意思是函数是static 的，而不是内存分配方式
 class static_alloc {
 public:
     static void swap(static_alloc&) noexcept {}

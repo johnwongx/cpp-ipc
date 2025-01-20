@@ -23,11 +23,17 @@
 namespace ipc {
 namespace detail {
 
+// Elems 的封装，负责内存管理，以及receiver 连接状态维护
+// Elems: circ::elem_array<ipc::prod_cons_impl<flag_t>, DataSize, AlignSize>
+// Elems: 实际上是一个队列
 class queue_conn {
 protected:
     circ::cc_t connected_ = 0;
     shm::handle elems_h_;
 
+    // 初始化元素内存
+    // 为元素申请命名的共享内存空间，然后对元素进行初始化
+    // 相当于new ，只不过内存位置在共享内存区域
     template <typename Elems>
     Elems* open(char const * name) {
         if (!is_valid_string(name)) {
@@ -42,7 +48,7 @@ protected:
             ipc::error("fail acquire elems: %s\n", name);
             return nullptr;
         }
-        elems->init();
+        elems->init(); // conn_head_base::init
         return elems;
     }
 
@@ -71,6 +77,7 @@ public:
         return connected_;
     }
 
+    // 连接receiver
     template <typename Elems>
     auto connect(Elems* elems) noexcept
                          /*needs 'optional' here*/
@@ -92,6 +99,7 @@ public:
     }
 };
 
+// 封装了Elems ，类内部保存了发送状态的数据
 template <typename Elems>
 class queue_base : public queue_conn {
     using base_t = queue_conn;
@@ -102,7 +110,7 @@ public:
 
 protected:
     elems_t * elems_ = nullptr;
-    decltype(std::declval<elems_t>().cursor()) cursor_ = 0;
+    decltype(std::declval<elems_t>().cursor()) cursor_ = 0; // prod_cons_impl::cursor()
     bool sender_flag_ = false;
 
 public:
@@ -112,7 +120,7 @@ public:
 
     explicit queue_base(char const * name)
         : queue_base{} {
-        elems_ = queue_conn::template open<elems_t>(name);
+        elems_ = base_t::template open<elems_t>(name);
     }
 
     explicit queue_base(elems_t * elems) noexcept
@@ -204,6 +212,7 @@ public:
 
 } // namespace detail
 
+// 封装了queue_base ,暴露了某几个接口
 template <typename T, typename Policy>
 class queue final : public detail::queue_base<typename Policy::template elems_t<sizeof(T), alignof(T)>> {
     using base_t = detail::queue_base<typename Policy::template elems_t<sizeof(T), alignof(T)>>;

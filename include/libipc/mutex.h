@@ -9,6 +9,7 @@
 namespace ipc {
 namespace sync {
 
+// 进程间互斥锁
 class IPC_EXPORT mutex {
     mutex(mutex const &) = delete;
     mutex &operator=(mutex const &) = delete;
@@ -27,6 +28,7 @@ public:
     void close() noexcept;
 
     void clear() noexcept;
+    // Windows 下啥也不做
     static void clear_storage(char const * name) noexcept;
 
     bool lock(std::uint64_t tm = ipc::invalid_value) noexcept;

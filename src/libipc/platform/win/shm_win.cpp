@@ -14,6 +14,8 @@
 #include "to_tchar.h"
 #include "get_sa.h"
 
+// 空命名空间内的任何内容都有内部链接性，也就是只能在当前cpp 中可见。
+// c++11 之前使用static 达到相同的效果，现代c++ 更推荐这种方式。
 namespace {
 
 struct id_info_t {
@@ -27,6 +29,8 @@ struct id_info_t {
 namespace ipc {
 namespace shm {
 
+// 根据名字和大小创建或者获取文件映射对象
+// fileMapping 对象是内核文件，所有进程共享。此时文件还没有和进程内的地址空间产生联系
 id_t acquire(char const * name, std::size_t size, unsigned mode) {
     if (!is_valid_string(name)) {
         ipc::error("fail acquire: name is empty\n");
@@ -44,6 +48,8 @@ id_t acquire(char const * name, std::size_t size, unsigned mode) {
     }
     // Creates or opens a named file mapping object for a specified file.
     else {
+        // INVALID_HANDLE_VALUE :表示内存是在physical storage 上
+        // 显式指定commit 标志，操作系统会立即分配物理存储
         h = ::CreateFileMapping(INVALID_HANDLE_VALUE, detail::get_sa(), PAGE_READWRITE | SEC_COMMIT,
                                 0, static_cast<DWORD>(size), fmt_name.c_str());
         DWORD err = ::GetLastError();

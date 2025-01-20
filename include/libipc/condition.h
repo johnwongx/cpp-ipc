@@ -27,6 +27,7 @@ public:
     void close() noexcept;
 
     void clear() noexcept;
+    // Windows 下啥也不做
     static void clear_storage(char const * name) noexcept;
 
     bool wait(ipc::sync::mutex &mtx, std::uint64_t tm = ipc::invalid_value) noexcept;
