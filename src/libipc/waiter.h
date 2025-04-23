@@ -63,7 +63,8 @@ public:
         ipc::sync::mutex::clear_storage((std::string{name} + "_WAITER_LOCK_").c_str());
     }
 
-    // 在不退出并且满足条件的情况下继续等待，直到超时或者不满足条件或退出
+    // 满足条件时持续等待，反之退出
+    // 条件：quit_, pred
     template <typename F>
     bool wait_if(F &&pred, std::uint64_t tm = ipc::invalid_value) noexcept {
         IPC_UNUSED_ std::lock_guard<ipc::sync::mutex> guard {lock_};

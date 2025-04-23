@@ -43,6 +43,7 @@ public:
                 // 在当前内存位置上重新构造一个对象
                 ::new (this) conn_head_base;
                 // 使用release 顺序保证了内存申请操作不会重排到本句之后
+                // 和最外层的if 同步
                 constructed_.store(true, std::memory_order_release);
             }
         }

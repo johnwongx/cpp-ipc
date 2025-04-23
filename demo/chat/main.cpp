@@ -13,8 +13,10 @@ constexpr char const name__[] = "ipc-chat";
 constexpr char const quit__[] = "q";
 constexpr char const id__  [] = "c";
 
+// 打开命名的共享内存，获取当前id 并加1
 inline std::size_t calc_unique_id() {
     static ipc::shm::handle g_shm { "__CHAT_ACC_STORAGE__", sizeof(std::atomic<std::size_t>) };
+    // 因为fetch_add 本身是原子的，所以即使使用松散内存序也能得到唯一值
     return static_cast<std::atomic<std::size_t>*>(g_shm.get())->fetch_add(1, std::memory_order_relaxed);
 }
 
@@ -27,6 +29,7 @@ int main() {
     std::string buf, id = id__ + std::to_string(calc_unique_id());
     std::regex  reg { "(c\\d+)> (.*)" };
 
+    // 启动子线程用于接收消息
     std::thread r {[&id, &reg] {
         std::cout << id << " is ready." << std::endl;
         while (1) {

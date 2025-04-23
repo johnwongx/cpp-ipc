@@ -46,7 +46,7 @@ public:
         std::swap(dismiss_   , rhs.dismiss_);
     }
 
-    // 用于灵活控制是否需要析构
+    // 不需要自动析构
     void dismiss() const noexcept {
         dismiss_ = true;
     }

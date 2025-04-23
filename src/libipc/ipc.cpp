@@ -32,7 +32,7 @@
 namespace {
 
 using msg_id_t = std::uint32_t;
-// 原子类型的msg_id_t
+// std::atomic<std::uint32_t>
 using acc_t    = std::atomic<msg_id_t>;
 
 // 消息相关的数据
@@ -74,6 +74,7 @@ ipc::buff_t make_cache(T& data, std::size_t size) {
     return { ptr, size, ipc::mem::free };
 }
 
+// 使用CA_CONN__ 为key 申请一个acc_t 大小的内存
 acc_t *cc_acc(ipc::string const &pref) {
     static ipc::unordered_map<ipc::string, ipc::shm::handle> handles;
     static std::mutex lock;
@@ -370,6 +371,7 @@ bool clear_message(conn_info_head *inf, void* p) {
     return true;
 }
 
+// 循环执行pred 函数，直到其返回false
 template <typename W, typename F>
 bool wait_for(W& waiter, F&& pred, std::uint64_t tm) {
     if (tm == 0) return !pred();
@@ -385,6 +387,7 @@ bool wait_for(W& waiter, F&& pred, std::uint64_t tm) {
     return true;
 }
 
+// Policy = ipc::policy::choose<ipc::circ::elem_array,ipc::wr<1,1,1>>
 template <typename Policy,
           std::size_t DataSize  = ipc::data_length,
           std::size_t AlignSize = (ipc::detail::min)(DataSize, alignof(std::max_align_t))>
@@ -393,7 +396,7 @@ struct queue_generator {
     using queue_t = ipc::queue<msg_t<DataSize, AlignSize>, Policy>;
 
     struct conn_info_t : conn_info_head {
-        queue_t que_;
+        queue_t que_; // 数据队列
 
         conn_info_t(char const * pref, char const * name)
             : conn_info_head{pref, name} { init(); }

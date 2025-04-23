@@ -297,9 +297,10 @@ struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
     using flag_t = std::uint64_t;
 
     // 8个字节分为三个部分, 下边的宏都是这些部分的掩码和单位增加值
-    // 低位四字节为rc
-    // 中间三字节为ic
-    // 高位一字节为ep
+    // rc(read counter): 低位四字节, 用于表示数据的读取情况。一个数据未被读取时，其值等同于connections,
+    //                   每个消费者读取后将自己的位置为0
+    // ic(index counter): 中间三字节, 数据的唯一索引, 增量计数器
+    // ep(epoch): 高位一字节,用于区分不同时间段，防止在并发环境下被重复处理
     enum : rc_t {
         rc_mask = 0x00000000ffffffffull, // read count?
         ep_mask = 0x00ffffffffffffffull,
@@ -312,40 +313,53 @@ struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
     struct elem_t {
         // std::aligned_storage_t: 申请了一块指定大小和对其的内存，但没有初始化。
         // 结合placement new 使用
+        // 实际类型是：msg_t
         std::aligned_storage_t<DataSize, AlignSize> data_ {};
+		// 一个综合的（rc,ep,ic)的读取情况信息
         std::atomic<rc_t  > rc_   { 0 }; // read-counter
         std::atomic<flag_t> f_ct_ { 0 }; // commit flag
     };
 
     // alignas :指定对齐长度
-    alignas(cache_line_size) std::atomic<circ::u2_t> ct_;   // commit index
-    alignas(cache_line_size) std::atomic<rc_t> epoch_ { 0 };
+    // commit index: 每放入一个数据自增1，使用低八位表示实际在数组中的位置（循环队列）
+    alignas(cache_line_size) std::atomic<circ::u2_t> ct_;
+    alignas(cache_line_size) std::atomic<rc_t> epoch_ { 0 }; // 时间段标识，用于并发环境, 防止数据重入
 
     // 返回提交序号
     circ::u2_t cursor() const noexcept {
         return ct_.load(std::memory_order_acquire);
     }
 
-    // 以ic_incr 为单位进行增加，溢出时舍弃
+    // ic 部分增加ic_incr, 保留ep 和rc 部分
     constexpr static rc_t inc_rc(rc_t rc) noexcept {
         return (rc & ic_mask) | ((rc + ic_incr) & ~ic_mask);
     }
 
-    // 增加rc，返回值保留ep和ic
+    // 增加ic 部分，返回值保留ep和ic 部分，清除rc 部分（置为0）
     constexpr static rc_t inc_mask(rc_t rc) noexcept {
         return inc_rc(rc) & ~rc_mask;
     }
 
+    /*
+    * 发送模式为多对多广播时的具体类型（wr<1,1,1>）：
+    * W: detail::queue_base<circ::elem_array<prod_cons_impl<wr<1,1,1>>,80,8>>
+    * F: void <lambda>(void *)
+    * E: prod_cons_impl<wr<1,1,1>>::elem_t<80,8>[] 数组
+    */
+    // 使用环形队列存储元素，每次将数据放入数组中时，都要先判断之前在本位置的元素是否被消费了。
+    // 如果已经被消费了，就在该位置初始化数据。
     template <typename W, typename F, typename E>
     bool push(W* wrapper, F&& f, E* elems) {
         E* el;
         circ::u2_t cur_ct;
         rc_t epoch = epoch_.load(std::memory_order_acquire);
         for (unsigned k = 0;;) {
-            // 连接的reader 个数
+            // 连接的reader 的连接情况，每一位代表一个连接者
             circ::cc_t cc = wrapper->elems()->connections(std::memory_order_relaxed);
             if (cc == 0) return false; // no reader
+            // index_of 通过截断达到唤醒队列的效果
             el = elems + circ::index_of(cur_ct = ct_.load(std::memory_order_relaxed));
+            // cur_rc 实际由rc,ic,ep 三部分组成。rem_cc 表示rc 部分，也就是读取情况。
             // check all consumers have finished reading this element
             auto cur_rc = el->rc_.load(std::memory_order_relaxed);
             circ::cc_t rem_cc = cur_rc & rc_mask;
@@ -353,11 +367,17 @@ struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
                 return false; // has not finished yet
             }
             else if (!rem_cc) {
+                // ?
                 auto cur_fl = el->f_ct_.load(std::memory_order_acquire);
                 if ((cur_fl != cur_ct) && cur_fl) {
                     return false; // full
                 }
             }
+            // 1. rc_ 更新: 分别需要更新三个部分的数据:
+            //  1). 将新的epoch 放入
+            //  2). 将ic 部分增加1
+            //  3). 将connections 放入rc 部分（为1表示该消费者还未读取）
+            // 2. epoch 判断是否改变，未改变时认为更新成功。改变了，就需要重新进行一次判断。
             // consider rem_cc to be 0 here
             if (el->rc_.compare_exchange_weak(
                         cur_rc, inc_mask(epoch | (cur_rc & ep_mask)) | static_cast<rc_t>(cc), std::memory_order_relaxed) &&
@@ -367,7 +387,10 @@ struct prod_cons_impl<wr<relat::multi, relat::multi, trans::broadcast>> {
             ipc::yield(k);
         }
         // only one thread/process would touch here at one time
+        // 上边的rc_和epoch_ 的CAS保证了只有一个线程会走到当前代码位置
+        // 增加commit index,确保下一个元素放入时能放到下一个位置
         ct_.store(cur_ct + 1, std::memory_order_release);
+        // 将要发送的数据放入到data_ 中
         std::forward<F>(f)(&(el->data_));
         // set flag & try update wt
         el->f_ct_.store(~static_cast<flag_t>(cur_ct), std::memory_order_release);

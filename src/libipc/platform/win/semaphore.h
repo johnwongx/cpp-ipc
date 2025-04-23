@@ -54,6 +54,7 @@ public:
     static void clear_storage(char const */*name*/) noexcept {
     }
 
+    // P ²Ù×÷
     bool wait(std::uint64_t tm) noexcept {
         DWORD ret, ms = (tm == invalid_value) ? INFINITE : static_cast<DWORD>(tm);
         switch ((ret = ::WaitForSingleObject(h_, ms))) {
@@ -68,6 +69,7 @@ public:
         }
     }
 
+    // V ²Ù×÷
     bool post(std::uint32_t count) noexcept {
         if (!::ReleaseSemaphore(h_, static_cast<LONG>(count), NULL)) {
             ipc::error("fail ReleaseSemaphore[%lu]\n", ::GetLastError());

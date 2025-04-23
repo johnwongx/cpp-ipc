@@ -21,9 +21,9 @@ namespace sync {
 // 命名共享内存 + 互斥量 + 互斥锁
 // 理解本类需要先了解条件变量的效果
 class condition {
-    ipc::sync::semaphore sem_;
-    ipc::sync::mutex lock_;
-    ipc::shm::handle shm_; // 用作计数使用
+    ipc::sync::semaphore sem_; // 用于阻塞等待和唤醒
+    ipc::sync::mutex lock_; // 用于保护shm_
+    ipc::shm::handle shm_; // 等待者的个数
 
     // 返回共享内存的前4个字节数据的引用
     // 使用共享内存同步个数
@@ -95,6 +95,7 @@ public:
          *  - https://www.microsoft.com/en-us/research/wp-content/uploads/2004/12/ImplementingCVs.pdf
          *  - https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-signalobjectandwait
         */
+        // SignalObjectAndWait 用于原子地释放一个对象并等待另一个对象
         // 释放锁并对信号量进行P 操作，原子操作
         // 如果拆分为两步，可能会导致以下两种问题：
         // 1. 如果先释放了mtx，然后线程被切出去了，此时另一个进程发出了信号量，这个信号就会丢失
@@ -113,7 +114,7 @@ public:
     // 会操作无效信号量，进而引发未定义行为
     bool notify(ipc::sync::mutex &) noexcept {
         if (!valid()) return false;
-        auto &cnt = counter();
+        auto &cnt = counter(); // 这里只是获取内存的地址，并没有读取内容所以无需加锁
         if (!lock_.lock()) return false;
         bool ret = false;
 		// 如果没有等待者，不需要增加信号量，否则会导致下次wait 时直接触发

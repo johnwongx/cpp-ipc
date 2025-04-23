@@ -52,6 +52,7 @@ class chan_wrapper {
 private:
     using detail_t = chan_impl<Flag>;
 
+    // queue_generator<policy_t>::conn_info_t
     ipc::handle_t h_ = detail_t::init_first();
     unsigned mode_   = ipc::sender;
     bool connected_  = false;
@@ -170,6 +171,8 @@ public:
         return chan_wrapper(name).wait_for_recv(r_count, tm);
     }
 
+    // 发送过程：先将数据放入到h_->que->elems->block_ 数组中，然后使用条件变量通知接收者读取
+    // elems 存放于共享内存中
     /**
      * If timeout, this function would call 'force_push' to send the data forcibly.
     */

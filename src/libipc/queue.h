@@ -28,10 +28,11 @@ namespace detail {
 // Elems: 实际上是一个队列
 class queue_conn {
 protected:
-    circ::cc_t connected_ = 0;
+    circ::cc_t connected_ = 0; // receiver 的id
     shm::handle elems_h_;
 
     // 初始化元素内存
+    // Elems 是整个数组的大小
     // 为元素申请命名的共享内存空间，然后对元素进行初始化
     // 相当于new ，只不过内存位置在共享内存区域
     template <typename Elems>
@@ -99,7 +100,11 @@ public:
     }
 };
 
-// 封装了Elems ，类内部保存了发送状态的数据
+// 封装了Elems 的操作，类内部保存了发送状态的数据
+// Elems = Policy::elems_t 
+//       = policy::circ::elem_array<ipc::prod_cons_impl<ipc::wr<1,1,1>>, DataSize, AlignSize>
+// DataSize = sizeof(msg_t<T>)
+// AlignSize = sizeof(msg_t<T>)
 template <typename Elems>
 class queue_base : public queue_conn {
     using base_t = queue_conn;
@@ -110,7 +115,8 @@ public:
 
 protected:
     elems_t * elems_ = nullptr;
-    decltype(std::declval<elems_t>().cursor()) cursor_ = 0; // prod_cons_impl::cursor()
+    // commit index,prod_cons_impl::cursor()
+    decltype(std::declval<elems_t>().cursor()) cursor_ = 0; 
     bool sender_flag_ = false;
 
 public:
@@ -213,6 +219,8 @@ public:
 } // namespace detail
 
 // 封装了queue_base ,暴露了某几个接口
+// T: msg_t
+// Policy: ipc::policy::choose<ipc::circ::elem_array,ipc::wr<1,1,1>>
 template <typename T, typename Policy>
 class queue final : public detail::queue_base<typename Policy::template elems_t<sizeof(T), alignof(T)>> {
     using base_t = detail::queue_base<typename Policy::template elems_t<sizeof(T), alignof(T)>>;
