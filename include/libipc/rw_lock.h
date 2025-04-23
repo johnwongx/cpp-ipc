@@ -6,6 +6,7 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
+#include <cstdint>
 
 ////////////////////////////////////////////////////////////////
 /// Gives hint to processor that improves performance of spin-wait loops.
@@ -111,7 +112,7 @@ namespace ipc {
 // 自旋锁
 // 如果锁持有时间较短，自旋锁的性能会比阻塞锁更高，因为它避免了线程阻塞和上下文切换的开销。
 class spin_lock {
-    std::atomic<unsigned> lc_ { 0 };
+    std::atomic<std::uint32_t> lc_ { 0 };
 
 public:
     // memory_order_acquire: 确保后续的读写操作不会被重排到锁获取之前。
@@ -130,7 +131,7 @@ public:
 
 // 读写锁：使用原子类型结合yield 实现
 class rw_lock {
-    using lc_ui_t = unsigned;
+    using lc_ui_t = std::uint32_t;
 
     std::atomic<lc_ui_t> lc_ { 0 };
 
@@ -138,8 +139,8 @@ class rw_lock {
     // (w_flag, 0): 读锁的mask
     // w_flag: 写锁
     enum : lc_ui_t {
-        w_mask = (std::numeric_limits<std::make_signed_t<lc_ui_t>>::max)(), // b 0111 1111
-        w_flag = w_mask + 1                                                 // b 1000 0000
+        w_mask = (std::numeric_limits<std::make_signed_t<lc_ui_t>>::max)(), // b 0111 1111 ...
+        w_flag = w_mask + 1                                                 // b 1000 0000 ...
     };
 
 public:
